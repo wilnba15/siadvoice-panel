@@ -1,0 +1,7 @@
+ARRANQUE PANEL SIADVOICE
+========================
+
+En cmd 
+cd siadvoice-landing\siadvoice-panel
+npm run dev
+http://localhost:3000/dashboard
