@@ -1,9 +1,9 @@
-import Link from "next/link"
+import Link from "next/link";
 
 export default function DashboardLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
     <div className="flex min-h-screen">
@@ -15,19 +15,22 @@ export default function DashboardLayout({
           <Link href="/dashboard" className="hover:text-blue-400">
             Dashboard
           </Link>
+
           <Link href="/dashboard/appointments" className="hover:text-blue-400">
             Citas
           </Link>
+
+          {/* Temporalmente oculto hasta crear la página real */}
+          {/*
           <Link href="/dashboard/patients" className="hover:text-blue-400">
             Pacientes
           </Link>
+          */}
         </nav>
       </aside>
 
       {/* Content */}
-      <main className="flex-1 p-10 bg-gray-100">
-        {children}
-      </main>
+      <main className="flex-1 p-10 bg-gray-100">{children}</main>
     </div>
-  )
+  );
 }
