@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { getClinicTheme } from "@/lib/clinic-theme";
 
 type Appointment = {
   id: number;
@@ -21,6 +22,9 @@ export default function AppointmentsPage() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [clinicSlug, setClinicSlug] = useState("");
+
+  const clinicTheme = useMemo(() => getClinicTheme(clinicSlug), [clinicSlug]);
 
   useEffect(() => {
     loadAppointments();
@@ -36,12 +40,14 @@ export default function AppointmentsPage() {
           ? localStorage.getItem("siadvoice_token")
           : null;
 
-      const clinicSlug =
+      const savedClinicSlug =
         typeof window !== "undefined"
           ? localStorage.getItem("siadvoice_clinic_slug")
           : null;
 
-      if (!token || !clinicSlug) {
+      setClinicSlug(savedClinicSlug || "");
+
+      if (!token || !savedClinicSlug) {
         router.push("/login");
         return;
       }
@@ -51,7 +57,7 @@ export default function AppointmentsPage() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          "X-Clinic-Slug": clinicSlug,
+          "X-Clinic-Slug": savedClinicSlug,
         },
       });
 
@@ -101,12 +107,12 @@ export default function AppointmentsPage() {
           ? localStorage.getItem("siadvoice_token")
           : null;
 
-      const clinicSlug =
+      const savedClinicSlug =
         typeof window !== "undefined"
           ? localStorage.getItem("siadvoice_clinic_slug")
           : null;
 
-      if (!token || !clinicSlug) {
+      if (!token || !savedClinicSlug) {
         router.push("/login");
         return;
       }
@@ -116,7 +122,7 @@ export default function AppointmentsPage() {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
-          "X-Clinic-Slug": clinicSlug,
+          "X-Clinic-Slug": savedClinicSlug,
         },
       });
 
@@ -203,11 +209,47 @@ export default function AppointmentsPage() {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-600 p-6 text-white shadow-sm">
-        <h1 className="text-3xl font-bold tracking-tight">Gestión de Citas</h1>
-        <p className="mt-2 text-sm text-blue-100">
-          Citas registradas por el asistente virtual de la clínica.
-        </p>
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-4">
+            <div
+              className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border ${clinicTheme.accent.border} ${clinicTheme.accent.soft} text-xl font-bold ${clinicTheme.accent.text} shadow-sm`}
+            >
+              {clinicTheme.initials}
+            </div>
+
+            <div>
+              <div
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${clinicTheme.accent.soft} ${clinicTheme.accent.text} border ${clinicTheme.accent.border}`}
+              >
+                Gestión de citas
+              </div>
+
+              <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+                {clinicTheme.displayName}
+              </h1>
+
+              <p className="mt-2 text-sm text-slate-600">
+                Agenda, filtra y administra las citas registradas por el
+                asistente virtual.
+              </p>
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {clinicSlug && (
+                  <p
+                    className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${clinicTheme.accent.border} ${clinicTheme.accent.soft} ${clinicTheme.accent.text}`}
+                  >
+                    Clínica activa: {clinicSlug}
+                  </p>
+                )}
+
+                <p className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700">
+                  Especialidad: {clinicTheme.specialty}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -216,7 +258,7 @@ export default function AppointmentsPage() {
             onClick={() => setFilter("today")}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               filter === "today"
-                ? "bg-blue-600 text-white shadow-sm"
+                ? `${clinicTheme.accent.button} shadow-sm`
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
@@ -227,7 +269,7 @@ export default function AppointmentsPage() {
             onClick={() => setFilter("week")}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               filter === "week"
-                ? "bg-blue-600 text-white shadow-sm"
+                ? `${clinicTheme.accent.button} shadow-sm`
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
@@ -238,7 +280,7 @@ export default function AppointmentsPage() {
             onClick={() => setFilter("all")}
             className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
               filter === "all"
-                ? "bg-blue-600 text-white shadow-sm"
+                ? `${clinicTheme.accent.button} shadow-sm`
                 : "bg-slate-100 text-slate-700 hover:bg-slate-200"
             }`}
           >
@@ -272,7 +314,8 @@ export default function AppointmentsPage() {
               Listado de citas
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              Visualiza, filtra y gestiona las citas registradas.
+              Visualiza, filtra y gestiona las citas registradas de{" "}
+              {clinicTheme.displayName}.
             </p>
           </div>
 
