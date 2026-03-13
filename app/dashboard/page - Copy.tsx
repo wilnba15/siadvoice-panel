@@ -6,9 +6,9 @@ type Appointment = {
   id?: string | number;
   patient_name?: string;
   patient_phone?: string;
-  date?: string;
-  time?: string;
-  status?: string;
+  date?: string; // "YYYY-MM-DD"
+  time?: string; // "HH:MM"
+  status?: string; // "scheduled" | "canceled" | etc
 };
 
 const API = process.env.NEXT_PUBLIC_API_BASE;
@@ -22,8 +22,9 @@ function todayISO() {
 }
 
 function startOfWeekISO() {
+  // semana empieza lunes
   const d = new Date();
-  const day = (d.getDay() + 6) % 7;
+  const day = (d.getDay() + 6) % 7; // lunes=0 ... domingo=6
   d.setDate(d.getDate() - day);
   const yyyy = d.getFullYear();
   const mm = String(d.getMonth() + 1).padStart(2, "0");
@@ -35,22 +36,11 @@ export default function DashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [clinicSlug, setClinicSlug] = useState<string>("");
 
   const TODAY = todayISO();
   const WEEK_START = startOfWeekISO();
 
   useEffect(() => {
-    const token = localStorage.getItem("siadvoice_token");
-    const savedClinicSlug = localStorage.getItem("siadvoice_clinic_slug") || "";
-
-    setClinicSlug(savedClinicSlug);
-
-    if (!token) {
-      window.location.href = "/login";
-      return;
-    }
-
     if (!API) {
       setError("Falta NEXT_PUBLIC_API_BASE en .env.local");
       setLoading(false);
@@ -62,26 +52,8 @@ export default function DashboardPage() {
         setLoading(true);
         setError(null);
 
-        const headers: HeadersInit = {
-          Authorization: `Bearer ${token}`,
-        };
-
-        if (savedClinicSlug) {
-          headers["X-Clinic-Slug"] = savedClinicSlug;
-        }
-
-        const res = await fetch(`${API}/appointments`, {
-          method: "GET",
-          headers,
-          cache: "no-store",
-        });
-
-        if (res.status === 401) {
-          localStorage.removeItem("siadvoice_token");
-          window.location.href = "/login";
-          return;
-        }
-
+        // usa el mismo endpoint que citas (si tu backend lo expone así)
+        const res = await fetch(`${API}/appointments`, { cache: "no-store" });
         if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
 
         const data = await res.json();
@@ -96,12 +68,13 @@ export default function DashboardPage() {
 
   const metrics = useMemo(() => {
     const total = appointments.length;
-    const today = appointments.filter((a) => a.date === TODAY).length;
-    const week = appointments.filter((a) => (a.date ?? "") >= WEEK_START).length;
+    const today = appointments.filter(a => a.date === TODAY).length;
+    const week = appointments.filter(a => (a.date ?? "") >= WEEK_START).length;
     return { total, today, week };
   }, [appointments, TODAY, WEEK_START]);
 
   const last = useMemo(() => {
+    // ordena por fecha+hora desc (si vienen como strings)
     const sorted = [...appointments].sort((a, b) => {
       const da = `${a.date ?? ""} ${a.time ?? ""}`.trim();
       const db = `${b.date ?? ""} ${b.time ?? ""}`.trim();
@@ -110,34 +83,10 @@ export default function DashboardPage() {
     return sorted.slice(0, 5);
   }, [appointments]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("siadvoice_token");
-    localStorage.removeItem("siadvoice_clinic_slug");
-    window.location.href = "/login";
-  };
-
   return (
     <div className="p-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard SIADVOICE</h1>
-          <p className="mt-2 text-gray-600">
-            Resumen general del sistema.
-          </p>
-          {clinicSlug && (
-            <p className="mt-2 inline-block rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700">
-              Clínica activa: {clinicSlug}
-            </p>
-          )}
-        </div>
-
-        <button
-          onClick={handleLogout}
-          className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
-        >
-          Cerrar sesión
-        </button>
-      </div>
+      <h1 className="text-3xl font-bold">Dashboard SIADVOICE</h1>
+      <p className="mt-2 text-gray-600">Resumen general del sistema.</p>
 
       {loading && <p className="mt-6">Cargando datos...</p>}
 
@@ -193,6 +142,7 @@ export default function DashboardPage() {
                         <td className="border p-2">{a.patient_phone ?? "-"}</td>
                         <td className="border p-2">{a.date ?? "-"}</td>
                         <td className="border p-2">{a.time ?? "-"}</td>
+                        
                         <td className="border p-2">
                           {a.status === "scheduled" && (
                             <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm">

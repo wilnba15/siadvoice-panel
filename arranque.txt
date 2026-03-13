@@ -5,3 +5,14 @@ En cmd
 cd siadvoice-landing\siadvoice-panel
 npm run dev
 http://localhost:3000/dashboard
+
+
+
+TODO EN WEB SIADVOICE
+=====================
+
+https://siadvoice-panel.vercel.app/ → te manda a /dashboard
+
+https://siadvoice-panel.vercel.app/dashboard → panel
+
+https://siadvoice-panel.vercel.app/dashboard/appointments → citas
