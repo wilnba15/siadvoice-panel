@@ -1,10 +1,27 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { getClinicTheme } from "@/lib/clinic-theme";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const [clinicSlug, setClinicSlug] = useState("");
+
+  useEffect(() => {
+    const savedClinicSlug =
+      localStorage.getItem("siadvoice_clinic_slug") || "";
+    setClinicSlug(savedClinicSlug);
+  }, []);
+
+  const clinicTheme = useMemo(
+    () => getClinicTheme(clinicSlug),
+    [clinicSlug]
+  );
+
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="flex min-h-screen">
@@ -15,12 +32,28 @@ export default function DashboardLayout({
               STAGING
             </div>
 
-            <h2 className="mt-4 text-2xl font-bold tracking-tight">
-              SIADVOICE
-            </h2>
-            <p className="mt-2 text-sm text-slate-400">
-              Panel multi-clínica
-            </p>
+            <div className="mt-5 flex items-center gap-3">
+              <div
+                className={`flex h-14 w-14 items-center justify-center rounded-full border ${clinicTheme.accent.border} ${clinicTheme.accent.soft} text-lg font-bold ${clinicTheme.accent.text}`}
+              >
+                {clinicTheme.initials}
+              </div>
+
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {clinicTheme.displayName}
+                </h2>
+                <p className="mt-1 text-sm text-slate-400">
+                  {clinicTheme.specialty}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-sm text-slate-400">
+                Panel multi-clínica SIADVOICE
+              </p>
+            </div>
           </div>
 
           <nav className="flex flex-col gap-2">
@@ -37,24 +70,17 @@ export default function DashboardLayout({
             >
               Citas
             </Link>
-
-            {/* Temporalmente oculto hasta crear la página real */}
-            {/*
-            <Link
-              href="/dashboard/patients"
-              className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800 hover:text-white"
-            >
-              Pacientes
-            </Link>
-            */}
           </nav>
 
           <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
             <p className="text-xs uppercase tracking-wide text-slate-500">
-              Estado
+              Clínica activa
             </p>
-            <p className="mt-2 text-sm text-slate-300">
-              Sistema operativo y listo para pruebas por clínica.
+            <p className="mt-2 text-sm font-medium text-slate-200">
+              {clinicTheme.displayName}
+            </p>
+            <p className="mt-1 text-sm text-slate-400">
+              {clinicTheme.subtitle}
             </p>
           </div>
         </aside>

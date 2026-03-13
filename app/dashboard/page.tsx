@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getClinicTheme } from "@/lib/clinic-theme";
 
 type Appointment = {
   id?: string | number;
@@ -60,6 +61,8 @@ export default function DashboardPage() {
   const TODAY = todayISO();
   const WEEK_START = startOfWeekISO();
 
+  const clinicTheme = useMemo(() => getClinicTheme(clinicSlug), [clinicSlug]);
+
   useEffect(() => {
     const token = localStorage.getItem("siadvoice_token");
     const savedClinicSlug = localStorage.getItem("siadvoice_clinic_slug") || "";
@@ -105,7 +108,7 @@ export default function DashboardPage() {
         if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
 
         const data = await res.json();
-        setAppointments(Array.isArray(data) ? data : (data.items ?? []));
+        setAppointments(Array.isArray(data) ? data : data.items ?? []);
       } catch (e: any) {
         setError(e?.message ?? "Error cargando datos");
       } finally {
@@ -118,7 +121,8 @@ export default function DashboardPage() {
     const total = appointments.length;
     const today = appointments.filter((a) => a.date === TODAY).length;
     const week = appointments.filter((a) => (a.date ?? "") >= WEEK_START).length;
-    return { total, today, week };
+    const scheduled = appointments.filter((a) => a.status === "scheduled").length;
+    return { total, today, week, scheduled };
   }, [appointments, TODAY, WEEK_START]);
 
   const last = useMemo(() => {
@@ -139,25 +143,43 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
-              Panel principal
+        <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+          <div className="flex items-start gap-4">
+            <div
+              className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border ${clinicTheme.accent.border} ${clinicTheme.accent.soft} text-xl font-bold ${clinicTheme.accent.text} shadow-sm`}
+            >
+              {clinicTheme.initials}
             </div>
 
-            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
-              Dashboard SIADVOICE
-            </h1>
+            <div>
+              <div
+                className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${clinicTheme.accent.soft} ${clinicTheme.accent.text} border ${clinicTheme.accent.border}`}
+              >
+                Panel principal
+              </div>
 
-            <p className="mt-2 text-sm text-slate-600">
-              Resumen general del sistema de citas y actividad reciente.
-            </p>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+                {clinicTheme.displayName}
+              </h1>
 
-            {clinicSlug && (
-              <p className="mt-4 inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
-                Clínica activa: {clinicSlug}
+              <p className="mt-2 text-sm text-slate-600">
+                {clinicTheme.subtitle}
               </p>
-            )}
+
+              <div className="mt-4 flex flex-wrap gap-2">
+                {clinicSlug && (
+                  <p
+                    className={`inline-flex rounded-full border px-3 py-1 text-sm font-medium ${clinicTheme.accent.border} ${clinicTheme.accent.soft} ${clinicTheme.accent.text}`}
+                  >
+                    Clínica activa: {clinicSlug}
+                  </p>
+                )}
+
+                <p className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700">
+                  Especialidad: {clinicTheme.specialty}
+                </p>
+              </div>
+            </div>
           </div>
 
           <button
@@ -183,8 +205,10 @@ export default function DashboardPage() {
 
       {!loading && !error && (
         <>
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <div
+              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
+            >
               <p className="text-sm font-medium text-slate-500">Citas hoy</p>
               <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
                 {metrics.today}
@@ -194,7 +218,9 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div
+              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
+            >
               <p className="text-sm font-medium text-slate-500">
                 Citas esta semana
               </p>
@@ -206,7 +232,9 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div
+              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
+            >
               <p className="text-sm font-medium text-slate-500">
                 Total de citas
               </p>
@@ -215,6 +243,20 @@ export default function DashboardPage() {
               </p>
               <p className="mt-2 text-sm text-slate-500">
                 Registros disponibles en la clínica activa.
+              </p>
+            </div>
+
+            <div
+              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
+            >
+              <p className="text-sm font-medium text-slate-500">
+                Programadas
+              </p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.scheduled}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Citas actualmente activas en el sistema.
               </p>
             </div>
           </section>
@@ -226,7 +268,8 @@ export default function DashboardPage() {
                   Últimas citas
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Vista rápida de los registros más recientes.
+                  Vista rápida de los registros más recientes de{" "}
+                  {clinicTheme.displayName}.
                 </p>
               </div>
 
