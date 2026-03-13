@@ -31,6 +31,26 @@ function startOfWeekISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function translateStatus(status?: string) {
+  if (status === "scheduled") return "Programada";
+  if (status === "canceled") return "Cancelada";
+  if (status === "completed") return "Completada";
+  return status || "Sin estado";
+}
+
+function statusClasses(status?: string) {
+  if (status === "scheduled") {
+    return "border border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+  if (status === "canceled") {
+    return "border border-rose-200 bg-rose-50 text-rose-700";
+  }
+  if (status === "completed") {
+    return "border border-sky-200 bg-sky-50 text-sky-700";
+  }
+  return "border border-slate-200 bg-slate-50 text-slate-700";
+}
+
 export default function DashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,96 +137,149 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="p-8">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Dashboard SIADVOICE</h1>
-          <p className="mt-2 text-gray-600">
-            Resumen general del sistema.
-          </p>
-          {clinicSlug && (
-            <p className="mt-2 inline-block rounded-full bg-blue-50 px-3 py-1 text-sm text-blue-700">
-              Clínica activa: {clinicSlug}
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="inline-flex items-center rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-medium text-sky-700">
+              Panel principal
+            </div>
+
+            <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
+              Dashboard SIADVOICE
+            </h1>
+
+            <p className="mt-2 text-sm text-slate-600">
+              Resumen general del sistema de citas y actividad reciente.
             </p>
-          )}
+
+            {clinicSlug && (
+              <p className="mt-4 inline-flex rounded-full border border-indigo-200 bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
+                Clínica activa: {clinicSlug}
+              </p>
+            )}
+          </div>
+
+          <button
+            onClick={handleLogout}
+            className="inline-flex items-center justify-center rounded-2xl border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Cerrar sesión
+          </button>
         </div>
+      </section>
 
-        <button
-          onClick={handleLogout}
-          className="rounded-lg border px-4 py-2 text-sm hover:bg-gray-50"
-        >
-          Cerrar sesión
-        </button>
-      </div>
-
-      {loading && <p className="mt-6">Cargando datos...</p>}
+      {loading && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <p className="text-slate-600">Cargando datos...</p>
+        </div>
+      )}
 
       {!loading && error && (
-        <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4 text-red-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-rose-700 shadow-sm">
           {error}
         </div>
       )}
 
       {!loading && !error && (
         <>
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            <div className="rounded-xl border bg-white p-5">
-              <p className="text-sm text-gray-500">Citas hoy</p>
-              <p className="mt-2 text-3xl font-semibold">{metrics.today}</p>
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">Citas hoy</p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.today}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Citas programadas para la fecha actual.
+              </p>
             </div>
-            <div className="rounded-xl border bg-white p-5">
-              <p className="text-sm text-gray-500">Citas esta semana</p>
-              <p className="mt-2 text-3xl font-semibold">{metrics.week}</p>
-            </div>
-            <div className="rounded-xl border bg-white p-5">
-              <p className="text-sm text-gray-500">Total de citas</p>
-              <p className="mt-2 text-3xl font-semibold">{metrics.total}</p>
-            </div>
-          </div>
 
-          <div className="mt-8 rounded-xl border bg-white p-5">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">Últimas citas</h2>
-              <a className="text-sm underline" href="/dashboard/appointments">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">
+                Citas esta semana
+              </p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.week}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Actividad acumulada desde el inicio de semana.
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">
+                Total de citas
+              </p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.total}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Registros disponibles en la clínica activa.
+              </p>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Últimas citas
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Vista rápida de los registros más recientes.
+                </p>
+              </div>
+
+              <a
+                className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+                href="/dashboard/appointments"
+              >
                 Ver todas
               </a>
             </div>
 
             {appointments.length === 0 ? (
-              <p className="mt-4 text-gray-600">No hay citas registradas.</p>
+              <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600">
+                No hay citas registradas.
+              </div>
             ) : (
-              <div className="mt-4 overflow-x-auto">
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="bg-gray-50 text-left">
-                      <th className="border p-2">Paciente</th>
-                      <th className="border p-2">Teléfono</th>
-                      <th className="border p-2">Fecha</th>
-                      <th className="border p-2">Hora</th>
-                      <th className="border p-2">Estado</th>
+              <div className="mt-6 overflow-x-auto rounded-2xl border border-slate-200">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50">
+                    <tr className="text-left text-slate-600">
+                      <th className="px-4 py-3 font-semibold">Paciente</th>
+                      <th className="px-4 py-3 font-semibold">Teléfono</th>
+                      <th className="px-4 py-3 font-semibold">Fecha</th>
+                      <th className="px-4 py-3 font-semibold">Hora</th>
+                      <th className="px-4 py-3 font-semibold">Estado</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-200 bg-white">
                     {last.map((a, idx) => (
-                      <tr key={String(a.id ?? idx)}>
-                        <td className="border p-2">{a.patient_name ?? "-"}</td>
-                        <td className="border p-2">{a.patient_phone ?? "-"}</td>
-                        <td className="border p-2">{a.date ?? "-"}</td>
-                        <td className="border p-2">{a.time ?? "-"}</td>
-                        <td className="border p-2">
-                          {a.status === "scheduled" && (
-                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm">
-                              Programada
-                            </span>
-                          )}
-
-                          {a.status === "canceled" && (
-                            <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-sm">
-                              Cancelada
-                            </span>
-                          )}
-
-                          {!a.status && "-"}
+                      <tr
+                        key={String(a.id ?? idx)}
+                        className="transition hover:bg-slate-50"
+                      >
+                        <td className="px-4 py-4 font-medium text-slate-900">
+                          {a.patient_name ?? "-"}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          {a.patient_phone ?? "-"}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          {a.date ?? "-"}
+                        </td>
+                        <td className="px-4 py-4 text-slate-600">
+                          {a.time ?? "-"}
+                        </td>
+                        <td className="px-4 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClasses(
+                              a.status
+                            )}`}
+                          >
+                            {translateStatus(a.status)}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -214,7 +287,7 @@ export default function DashboardPage() {
                 </table>
               </div>
             )}
-          </div>
+          </section>
         </>
       )}
     </div>
