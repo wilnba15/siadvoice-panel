@@ -22,6 +22,15 @@ function todayISO() {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+function addDaysISO(baseISO: string, days: number) {
+  const d = new Date(`${baseISO}T00:00:00`);
+  d.setDate(d.getDate() + days);
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 function startOfWeekISO() {
   const d = new Date();
   const day = (d.getDay() + 6) % 7;
@@ -30,6 +39,13 @@ function startOfWeekISO() {
   const mm = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${yyyy}-${mm}-${dd}`;
+}
+
+function monthStartISO() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}-01`;
 }
 
 function translateStatus(status?: string) {
@@ -52,6 +68,34 @@ function statusClasses(status?: string) {
   return "border border-slate-200 bg-slate-50 text-slate-700";
 }
 
+function formatDateShort(date?: string) {
+  if (!date) return "-";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return date;
+  return parsed.toLocaleDateString("es-EC", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function safePercent(value: number, total: number) {
+  if (!total) return 0;
+  return Math.round((value / total) * 100);
+}
+
+function compareDateTimeAsc(a: Appointment, b: Appointment) {
+  const da = `${a.date ?? ""} ${a.time ?? ""}`.trim();
+  const db = `${b.date ?? ""} ${b.time ?? ""}`.trim();
+  return da.localeCompare(db);
+}
+
+function compareDateTimeDesc(a: Appointment, b: Appointment) {
+  const da = `${a.date ?? ""} ${a.time ?? ""}`.trim();
+  const db = `${b.date ?? ""} ${b.time ?? ""}`.trim();
+  return db.localeCompare(da);
+}
+
 export default function DashboardPage() {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,6 +104,8 @@ export default function DashboardPage() {
 
   const TODAY = todayISO();
   const WEEK_START = startOfWeekISO();
+  const MONTH_START = monthStartISO();
+  const NEXT_7_DAYS_END = addDaysISO(TODAY, 7);
 
   const clinicTheme = useMemo(() => getClinicTheme(clinicSlug), [clinicSlug]);
 
@@ -101,6 +147,7 @@ export default function DashboardPage() {
 
         if (res.status === 401) {
           localStorage.removeItem("siadvoice_token");
+          localStorage.removeItem("siadvoice_clinic_slug");
           window.location.href = "/login";
           return;
         }
@@ -119,19 +166,77 @@ export default function DashboardPage() {
 
   const metrics = useMemo(() => {
     const total = appointments.length;
+
     const today = appointments.filter((a) => a.date === TODAY).length;
+
     const week = appointments.filter((a) => (a.date ?? "") >= WEEK_START).length;
+
+    const month = appointments.filter(
+      (a) => (a.date ?? "") >= MONTH_START
+    ).length;
+
+    const next7Days = appointments.filter((a) => {
+      const date = a.date ?? "";
+      return date >= TODAY && date <= NEXT_7_DAYS_END;
+    }).length;
+
     const scheduled = appointments.filter((a) => a.status === "scheduled").length;
-    return { total, today, week, scheduled };
-  }, [appointments, TODAY, WEEK_START]);
+    const completed = appointments.filter((a) => a.status === "completed").length;
+    const canceled = appointments.filter((a) => a.status === "canceled").length;
+
+    const completionRate = safePercent(completed, total);
+    const cancellationRate = safePercent(canceled, total);
+
+    return {
+      total,
+      today,
+      week,
+      month,
+      next7Days,
+      scheduled,
+      completed,
+      canceled,
+      completionRate,
+      cancellationRate,
+    };
+  }, [appointments, TODAY, WEEK_START, MONTH_START, NEXT_7_DAYS_END]);
 
   const last = useMemo(() => {
-    const sorted = [...appointments].sort((a, b) => {
-      const da = `${a.date ?? ""} ${a.time ?? ""}`.trim();
-      const db = `${b.date ?? ""} ${b.time ?? ""}`.trim();
-      return db.localeCompare(da);
-    });
+    const sorted = [...appointments].sort(compareDateTimeDesc);
     return sorted.slice(0, 5);
+  }, [appointments]);
+
+  const nextAppointment = useMemo(() => {
+    const upcoming = appointments
+      .filter((a) => {
+        const date = a.date ?? "";
+        return date >= TODAY && a.status !== "canceled";
+      })
+      .sort(compareDateTimeAsc);
+
+    return upcoming[0] ?? null;
+  }, [appointments, TODAY]);
+
+  const statusBreakdown = useMemo(() => {
+    const total = appointments.length || 1;
+    const scheduledPct = safePercent(
+      appointments.filter((a) => a.status === "scheduled").length,
+      total
+    );
+    const completedPct = safePercent(
+      appointments.filter((a) => a.status === "completed").length,
+      total
+    );
+    const canceledPct = safePercent(
+      appointments.filter((a) => a.status === "canceled").length,
+      total
+    );
+
+    return {
+      scheduledPct,
+      completedPct,
+      canceledPct,
+    };
   }, [appointments]);
 
   const handleLogout = () => {
@@ -155,7 +260,7 @@ export default function DashboardPage() {
               <div
                 className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${clinicTheme.accent.soft} ${clinicTheme.accent.text} border ${clinicTheme.accent.border}`}
               >
-                Panel principal
+                Dashboard ejecutivo KPI v1
               </div>
 
               <h1 className="mt-4 text-3xl font-bold tracking-tight text-slate-900">
@@ -177,6 +282,10 @@ export default function DashboardPage() {
 
                 <p className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700">
                   Especialidad: {clinicTheme.specialty}
+                </p>
+
+                <p className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-sm font-medium text-slate-700">
+                  Inicio semana: {formatDateShort(WEEK_START)}
                 </p>
               </div>
             </div>
@@ -205,59 +314,220 @@ export default function DashboardPage() {
 
       {!loading && !error && (
         <>
-          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <div
-              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
-            >
+          <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+            <div className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}>
               <p className="text-sm font-medium text-slate-500">Citas hoy</p>
               <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
                 {metrics.today}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Citas programadas para la fecha actual.
+                Agenda correspondiente al día actual.
               </p>
             </div>
 
-            <div
-              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
-            >
-              <p className="text-sm font-medium text-slate-500">
-                Citas esta semana
-              </p>
+            <div className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}>
+              <p className="text-sm font-medium text-slate-500">Próximos 7 días</p>
               <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
-                {metrics.week}
+                {metrics.next7Days}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Actividad acumulada desde el inicio de semana.
+                Visibilidad inmediata de carga operativa.
               </p>
             </div>
 
-            <div
-              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
-            >
-              <p className="text-sm font-medium text-slate-500">
-                Total de citas
-              </p>
+            <div className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}>
+              <p className="text-sm font-medium text-slate-500">Total de citas</p>
               <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
                 {metrics.total}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Registros disponibles en la clínica activa.
+                Histórico disponible para la clínica activa.
               </p>
             </div>
 
-            <div
-              className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}
-            >
-              <p className="text-sm font-medium text-slate-500">
-                Programadas
-              </p>
+            <div className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}>
+              <p className="text-sm font-medium text-slate-500">Programadas</p>
               <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
                 {metrics.scheduled}
               </p>
               <p className="mt-2 text-sm text-slate-500">
-                Citas actualmente activas en el sistema.
+                Citas activas pendientes de atención.
               </p>
+            </div>
+
+            <div className={`rounded-3xl border bg-white p-6 shadow-sm ${clinicTheme.accent.border}`}>
+              <p className="text-sm font-medium text-slate-500">Completadas</p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.completed}
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                Tasa de cierre: {metrics.completionRate}%
+              </p>
+            </div>
+
+            <div className="rounded-3xl border border-rose-200 bg-white p-6 shadow-sm">
+              <p className="text-sm font-medium text-slate-500">Tasa cancelación</p>
+              <p className="mt-3 text-4xl font-bold tracking-tight text-slate-900">
+                {metrics.cancellationRate}%
+              </p>
+              <p className="mt-2 text-sm text-slate-500">
+                {metrics.canceled} canceladas en total.
+              </p>
+            </div>
+          </section>
+
+          <section className="grid grid-cols-1 gap-4 xl:grid-cols-3">
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm xl:col-span-2">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-slate-900">
+                    Resumen operativo
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Estado general de la operación de {clinicTheme.displayName}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Esta semana</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                    {metrics.week}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Actividad desde el inicio de semana.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Este mes</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                    {metrics.month}
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Volumen acumulado del mes actual.
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-sm text-slate-500">Efectividad</p>
+                  <p className="mt-2 text-3xl font-bold text-slate-900">
+                    {metrics.completionRate}%
+                  </p>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Porcentaje de citas completadas.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 space-y-4">
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">Programadas</span>
+                    <span className="text-slate-500">
+                      {statusBreakdown.scheduledPct}%
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div
+                      className="h-3 rounded-full bg-emerald-400"
+                      style={{ width: `${statusBreakdown.scheduledPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">Completadas</span>
+                    <span className="text-slate-500">
+                      {statusBreakdown.completedPct}%
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div
+                      className="h-3 rounded-full bg-sky-400"
+                      style={{ width: `${statusBreakdown.completedPct}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="mb-2 flex items-center justify-between text-sm">
+                    <span className="font-medium text-slate-700">Canceladas</span>
+                    <span className="text-slate-500">
+                      {statusBreakdown.canceledPct}%
+                    </span>
+                  </div>
+                  <div className="h-3 rounded-full bg-slate-100">
+                    <div
+                      className="h-3 rounded-full bg-rose-400"
+                      style={{ width: `${statusBreakdown.canceledPct}%` }}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+              <h2 className="text-xl font-semibold text-slate-900">
+                Próxima cita
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                Siguiente atención registrada en el sistema.
+              </p>
+
+              {!nextAppointment ? (
+                <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-slate-600">
+                  No hay próximas citas disponibles.
+                </div>
+              ) : (
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  <p className="text-sm text-slate-500">Paciente</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900">
+                    {nextAppointment.patient_name ?? "-"}
+                  </p>
+
+                  <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Fecha
+                      </p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {formatDateShort(nextAppointment.date)}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">
+                        Hora
+                      </p>
+                      <p className="mt-1 font-semibold text-slate-900">
+                        {nextAppointment.time ?? "-"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">
+                      Teléfono
+                    </p>
+                    <p className="mt-1 text-slate-700">
+                      {nextAppointment.patient_phone ?? "-"}
+                    </p>
+                  </div>
+
+                  <div className="mt-4">
+                    <span
+                      className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusClasses(
+                        nextAppointment.status
+                      )}`}
+                    >
+                      {translateStatus(nextAppointment.status)}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
 
@@ -310,7 +580,7 @@ export default function DashboardPage() {
                           {a.patient_phone ?? "-"}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
-                          {a.date ?? "-"}
+                          {formatDateShort(a.date)}
                         </td>
                         <td className="px-4 py-4 text-slate-600">
                           {a.time ?? "-"}
