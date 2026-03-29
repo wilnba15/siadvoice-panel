@@ -70,6 +70,14 @@ export default function DashboardLayout({
             >
               Citas
             </Link>
+
+            {/* 🔥 NUEVO MÓDULO */}
+            <Link
+              href="/dashboard/historias-clinicas"
+              className="rounded-xl px-4 py-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800 hover:text-white"
+            >
+              Historias Clínicas
+            </Link>
           </nav>
 
           <div className="mt-10 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
