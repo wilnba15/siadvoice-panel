@@ -32,6 +32,71 @@ type MedicalEvolutionItem = {
   status?: string;
 };
 
+type MedicalEvolutionDetail = {
+  id: number;
+  clinic_id: number;
+  patient_id: number;
+  created_at?: string;
+  updated_at?: string;
+  evolution_datetime?: string;
+  professional_name?: string;
+  professional_role?: string;
+  attention_type?: string;
+  subjective?: string;
+  objective?: string;
+  assessment?: string;
+  plan?: string;
+  blood_pressure?: string;
+  heart_rate?: string;
+  respiratory_rate?: string;
+  temperature?: string;
+  oxygen_saturation?: string;
+  weight?: string;
+  glucose?: string;
+  pain_scale?: string;
+  diagnosis?: string;
+  indications?: string;
+  clinical_alerts?: string;
+  next_review_date?: string;
+  status?: string;
+};
+
+function StatusBadge({ status }: { status?: string }) {
+  const normalized = (status || "draft").toLowerCase();
+  const isFinalized = normalized === "finalized";
+
+  return (
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+        isFinalized
+          ? "bg-emerald-100 text-emerald-700"
+          : "bg-slate-100 text-slate-700"
+      }`}
+    >
+      {normalized}
+    </span>
+  );
+}
+
+function FieldBlock({
+  label,
+  value,
+}: {
+  label: string;
+  value?: string | null;
+}) {
+  return (
+    <div className="rounded-2xl border bg-white p-4">
+      <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {label}
+      </div>
+      <div className="whitespace-pre-wrap text-sm text-slate-700">
+        {value && value.trim() ? value : "-"}
+      </div>
+    </div>
+  );
+}
+
 export default function HistoriaDetallePage() {
   const { id } = useParams();
   const router = useRouter();
@@ -45,6 +110,10 @@ export default function HistoriaDetallePage() {
   const [loadingEvolutions, setLoadingEvolutions] = useState(true);
   const [showNewEvolution, setShowNewEvolution] = useState(false);
   const [savingEvolution, setSavingEvolution] = useState(false);
+  const [expandedEvolutionId, setExpandedEvolutionId] = useState<number | null>(null);
+  const [evolutionDetails, setEvolutionDetails] = useState<Record<number, MedicalEvolutionDetail>>({});
+  const [loadingEvolutionDetailId, setLoadingEvolutionDetailId] = useState<number | null>(null);
+  const [finalizingEvolutionId, setFinalizingEvolutionId] = useState<number | null>(null);
 
   const [form, setForm] = useState({
     motivo_consulta: "",
@@ -122,6 +191,36 @@ export default function HistoriaDetallePage() {
       setEvolutions([]);
     } finally {
       setLoadingEvolutions(false);
+    }
+  }
+
+  async function loadEvolutionDetail(evolutionId: number) {
+    if (evolutionDetails[evolutionId]) return;
+
+    try {
+      setLoadingEvolutionDetailId(evolutionId);
+
+      const token = localStorage.getItem("siadvoice_token");
+      const clinicSlug = localStorage.getItem("siadvoice_clinic_slug");
+
+      const res = await fetch(`${API}/medical-evolutions/${evolutionId}`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Clinic-Slug": clinicSlug || "",
+        },
+      });
+
+      if (!res.ok) {
+        throw new Error("No se pudo cargar el detalle de la evolución médica");
+      }
+
+      const data = await res.json();
+      setEvolutionDetails((prev) => ({ ...prev, [evolutionId]: data }));
+    } catch (error) {
+      console.error("Error cargando detalle de evolución médica:", error);
+      alert("No se pudo cargar el detalle de la evolución médica");
+    } finally {
+      setLoadingEvolutionDetailId(null);
     }
   }
 
@@ -222,6 +321,58 @@ export default function HistoriaDetallePage() {
       alert(error instanceof Error ? error.message : "Error creando evolución médica");
     } finally {
       setSavingEvolution(false);
+    }
+  }
+
+  async function finalizeEvolution(evolutionId: number) {
+    try {
+      setFinalizingEvolutionId(evolutionId);
+
+      const token = localStorage.getItem("siadvoice_token");
+      const clinicSlug = localStorage.getItem("siadvoice_clinic_slug");
+      const currentDetail = evolutionDetails[evolutionId];
+
+      const res = await fetch(`${API}/medical-evolutions/${evolutionId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+          "X-Clinic-Slug": clinicSlug || "",
+        },
+        body: JSON.stringify({
+          status: "finalized",
+          ...(currentDetail?.professional_name
+            ? { professional_name: currentDetail.professional_name }
+            : {}),
+        }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => null);
+        throw new Error(errorData?.detail || "No se pudo finalizar la evolución");
+      }
+
+      const updated = await res.json();
+      setEvolutionDetails((prev) => ({ ...prev, [evolutionId]: updated }));
+      setEvolutions((prev) =>
+        prev.map((item) =>
+          item.id === evolutionId ? { ...item, status: updated.status } : item
+        )
+      );
+    } catch (error) {
+      console.error("Error finalizando evolución médica:", error);
+      alert(error instanceof Error ? error.message : "Error finalizando evolución médica");
+    } finally {
+      setFinalizingEvolutionId(null);
+    }
+  }
+
+  async function toggleEvolution(evolutionId: number) {
+    const nextId = expandedEvolutionId === evolutionId ? null : evolutionId;
+    setExpandedEvolutionId(nextId);
+
+    if (nextId && !evolutionDetails[evolutionId]) {
+      await loadEvolutionDetail(evolutionId);
     }
   }
 
@@ -574,39 +725,169 @@ export default function HistoriaDetallePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {evolutions.map((evo) => (
-                  <div
-                    key={evo.id}
-                    className="rounded-2xl border bg-white p-5 shadow-sm"
-                  >
-                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                      <div>
-                        <div className="text-base font-semibold">
-                          {evo.professional_name || "Profesional no registrado"}
-                        </div>
-                        <div className="text-sm text-slate-500">
-                          {evo.professional_role || "Sin rol especificado"}
-                        </div>
-                      </div>
+                {evolutions.map((evo) => {
+                  const isExpanded = expandedEvolutionId === evo.id;
+                  const detail = evolutionDetails[evo.id];
+                  const isLoadingDetail = loadingEvolutionDetailId === evo.id;
+                  const isFinalized = (detail?.status || evo.status || "draft").toLowerCase() === "finalized";
 
-                      <div className="flex flex-col gap-1 text-sm text-slate-500 md:items-end">
-                        <span>
-                          {evo.evolution_datetime
-                            ? new Date(evo.evolution_datetime).toLocaleString()
-                            : "Sin fecha"}
-                        </span>
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                          {evo.status || "draft"}
-                        </span>
-                      </div>
-                    </div>
+                  return (
+                    <div
+                      key={evo.id}
+                      className="overflow-hidden rounded-2xl border bg-white shadow-sm"
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleEvolution(evo.id)}
+                        className="w-full p-5 text-left transition hover:bg-slate-50"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <div className="text-lg font-semibold text-slate-900">
+                                {evo.professional_name || "Profesional no registrado"}
+                              </div>
+                              <StatusBadge status={detail?.status || evo.status} />
+                            </div>
 
-                    <div className="mt-4 rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-                      <span className="font-semibold">Diagnóstico / resumen:</span>{" "}
-                      {evo.diagnosis || "Sin diagnóstico registrado"}
+                            <div className="text-sm text-slate-500">
+                              {evo.professional_role || "Sin rol especificado"}
+                            </div>
+
+                            <div className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                              <span className="font-semibold">Diagnóstico / resumen:</span>{" "}
+                              {evo.diagnosis || "Sin diagnóstico registrado"}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-start gap-2 text-sm text-slate-500 md:items-end">
+                            <span>
+                              {evo.evolution_datetime
+                                ? new Date(evo.evolution_datetime).toLocaleString()
+                                : "Sin fecha"}
+                            </span>
+                            <span className="text-xs font-medium text-blue-600">
+                              {isExpanded ? "Ocultar detalle ▲" : "Ver detalle ▼"}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t bg-slate-50/70 p-5">
+                          {isLoadingDetail ? (
+                            <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-slate-500">
+                              Cargando detalle clínico...
+                            </div>
+                          ) : detail ? (
+                            <div className="space-y-4">
+                              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                                <div className="rounded-2xl border bg-white p-4">
+                                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Fecha de evolución
+                                  </div>
+                                  <div className="text-sm text-slate-700">
+                                    {detail.evolution_datetime
+                                      ? new Date(detail.evolution_datetime).toLocaleString()
+                                      : "-"}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border bg-white p-4">
+                                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Profesional
+                                  </div>
+                                  <div className="text-sm text-slate-700">
+                                    {detail.professional_name || "-"}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border bg-white p-4">
+                                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Rol
+                                  </div>
+                                  <div className="text-sm text-slate-700">
+                                    {detail.professional_role || "-"}
+                                  </div>
+                                </div>
+
+                                <div className="rounded-2xl border bg-white p-4">
+                                  <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                    Estado
+                                  </div>
+                                  <div>
+                                    <StatusBadge status={detail.status} />
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <FieldBlock label="Diagnóstico" value={detail.diagnosis} />
+                                <FieldBlock label="Tipo de atención" value={detail.attention_type} />
+                                <FieldBlock label="S - Subjetivo" value={detail.subjective} />
+                                <FieldBlock label="O - Objetivo" value={detail.objective} />
+                                <FieldBlock label="A - Evaluación" value={detail.assessment} />
+                                <FieldBlock label="P - Plan" value={detail.plan} />
+                                <FieldBlock label="Indicaciones" value={detail.indications} />
+                                <FieldBlock label="Alertas clínicas" value={detail.clinical_alerts} />
+                              </div>
+
+                              <div className="space-y-3 rounded-2xl border bg-white p-4">
+                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  Signos vitales / mediciones
+                                </div>
+                                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">PA:</span> {detail.blood_pressure || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">FC:</span> {detail.heart_rate || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">FR:</span> {detail.respiratory_rate || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">Temp:</span> {detail.temperature || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">Sat O₂:</span> {detail.oxygen_saturation || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">Peso:</span> {detail.weight || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">Glucosa:</span> {detail.glucose || "-"}
+                                  </div>
+                                  <div className="rounded-xl bg-slate-50 p-3 text-sm text-slate-700">
+                                    <span className="font-semibold">Dolor:</span> {detail.pain_scale || "-"}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-wrap justify-end gap-3">
+                                {!isFinalized && (
+                                  <button
+                                    onClick={() => finalizeEvolution(evo.id)}
+                                    disabled={finalizingEvolutionId === evo.id}
+                                    className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-70"
+                                  >
+                                    {finalizingEvolutionId === evo.id
+                                      ? "Finalizando..."
+                                      : "✅ Finalizar evolución"}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="rounded-2xl border border-dashed bg-white p-6 text-sm text-slate-500">
+                              No se pudo cargar el detalle de esta evolución.
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
