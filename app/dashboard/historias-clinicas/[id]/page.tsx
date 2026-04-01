@@ -110,8 +110,23 @@ function emptyEvolutionForm(): EvolutionFormState {
   };
 }
 
+function hasExplicitTimezone(value: string) {
+  return /(?:Z|[+-]\d{2}:?\d{2})$/.test(value);
+}
+
 function formatDateEC(value?: string | null) {
   if (!value) return "-";
+
+  if (!hasExplicitTimezone(value)) {
+    const match = value.match(
+      /^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})(?::(\d{2}))?/
+    );
+    if (match) {
+      const [, year, month, day, hour, minute, second = "00"] = match;
+      return `${day}/${month}/${year}, ${hour}:${minute}:${second}`;
+    }
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
 
@@ -129,6 +144,15 @@ function formatDateEC(value?: string | null) {
 
 function toDatetimeLocalValue(value?: string | null) {
   if (!value) return "";
+
+  if (!hasExplicitTimezone(value)) {
+    const match = value.match(/^(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      return `${year}-${month}-${day}T${hour}:${minute}`;
+    }
+  }
+
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
@@ -146,9 +170,9 @@ function toDatetimeLocalValue(value?: string | null) {
   return `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}`;
 }
 
-function datetimeLocalToIso(value?: string) {
+function datetimeLocalToBackend(value?: string) {
   if (!value) return null;
-  return `${value}:00-05:00`;
+  return `${value}:00`;
 }
 
 function statusLabel(status?: string) {
@@ -458,7 +482,7 @@ export default function HistoriaDetallePage() {
       patient_id: record?.patient_id,
       professional_name: evolutionForm.professional_name.trim(),
       professional_role: evolutionForm.professional_role.trim() || null,
-      evolution_datetime: datetimeLocalToIso(evolutionForm.evolution_datetime),
+      evolution_datetime: datetimeLocalToBackend(evolutionForm.evolution_datetime),
       attention_type: evolutionForm.attention_type.trim() || null,
       diagnosis: evolutionForm.diagnosis.trim() || null,
       subjective: evolutionForm.subjective.trim() || null,
@@ -467,7 +491,7 @@ export default function HistoriaDetallePage() {
       plan: evolutionForm.plan.trim() || null,
       indications: evolutionForm.indications.trim() || null,
       clinical_alerts: evolutionForm.clinical_alerts.trim() || null,
-      next_review_date: datetimeLocalToIso(evolutionForm.next_review_date),
+      next_review_date: datetimeLocalToBackend(evolutionForm.next_review_date),
       blood_pressure: evolutionForm.blood_pressure.trim() || null,
       heart_rate: evolutionForm.heart_rate.trim() || null,
       respiratory_rate: evolutionForm.respiratory_rate.trim() || null,
